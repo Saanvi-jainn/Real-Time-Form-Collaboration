@@ -1,0 +1,303 @@
+classDiagram
+    class User {
+        -Long id
+        -String username
+        -String email
+        -String passwordHash
+        -UserRole role
+        -LocalDateTime createdAt
+        +Long getId()
+        +String getUsername()
+        +String getEmail()
+        +UserRole getRole()
+        +boolean isAdmin()
+    }
+
+    class Form {
+        -Long id
+        -String title
+        -String description
+        -User admin
+        -LocalDateTime createdAt
+        -LocalDateTime updatedAt
+        -boolean active
+        -List~FormField~ fields
+        -FormResponse response
+        +Long getId()
+        +String getTitle()
+        +String getDescription()
+        +User getAdmin()
+        +List~FormField~ getFields()
+        +FormResponse getResponse()
+        +String generateShareCode()
+        +void addField(FormField field)
+        +void removeField(Long fieldId)
+        +void updateField(FormField field)
+    }
+
+    class FormField {
+        -Long id
+        -Form form
+        -String fieldName
+        -FieldType fieldType
+        -String fieldOptions
+        -boolean required
+        -int displayOrder
+        +Long getId()
+        +String getFieldName()
+        +FieldType getFieldType()
+        +String getFieldOptions()
+        +boolean isRequired()
+        +int getDisplayOrder()
+        +void setFieldName(String fieldName)
+        +void setFieldType(FieldType fieldType)
+        +void setFieldOptions(String options)
+    }
+
+    class FormResponse {
+        -Long id
+        -Form form
+        -LocalDateTime createdAt
+        -LocalDateTime updatedAt
+        -ResponseStatus status
+        -List~FieldValue~ fieldValues
+        +Long getId()
+        +Form getForm()
+        +LocalDateTime getUpdatedAt()
+        +List~FieldValue~ getFieldValues()
+        +void updateFieldValue(Long fieldId, String value, User user)
+    }
+
+    class FieldValue {
+        -Long id
+        -FormResponse response
+        -FormField field
+        -String value
+        -LocalDateTime lastUpdated
+        -User lastUpdatedBy
+        +Long getId()
+        +FormField getField()
+        +String getValue()
+        +void setValue(String value, User user)
+        +User getLastUpdatedBy()
+        +LocalDateTime getLastUpdated()
+    }
+
+    class FormAccess {
+        -Long id
+        -Form form
+        -User user
+        -String accessCode
+        -LocalDateTime accessGranted
+        +Long getId()
+        +Form getForm()
+        +User getUser()
+        +String getAccessCode()
+    }
+
+    class EditLock {
+        -Long id
+        -FormField field
+        -FormResponse response
+        -User user
+        -LocalDateTime lockTime
+        -LocalDateTime expiresAt
+        +Long getId()
+        +FormField getField()
+        +User getUser()
+        +boolean isExpired()
+        +void refresh()
+        +void release()
+    }
+
+    class UserRole {
+        <<enumeration>>
+        ADMIN
+        USER
+    }
+
+    class FieldType {
+        <<enumeration>>
+        TEXT
+        NUMBER
+        TEXTAREA
+        DROPDOWN
+        RADIO
+        CHECKBOX
+        DATE
+        TIME
+        DATETIME
+    }
+
+    class ResponseStatus {
+        <<enumeration>>
+        DRAFT
+        SUBMITTED
+        ARCHIVED
+    }
+    
+    class UserController {
+        +ResponseEntity register(UserRegisterDto dto)
+        +ResponseEntity login(LoginDto dto)
+        +ResponseEntity getCurrentUser()
+    }
+
+    class FormController {
+        -FormService formService
+        +ResponseEntity createForm(FormCreateDto dto)
+        +ResponseEntity updateForm(Long id, FormUpdateDto dto)
+        +ResponseEntity getForm(Long id)
+        +ResponseEntity listForms()
+        +ResponseEntity deleteForm(Long id)
+        +ResponseEntity shareForm(Long id, ShareFormDto dto)
+    }
+
+    class FormFieldController {
+        -FormFieldService fieldService
+        +ResponseEntity addField(Long formId, FieldCreateDto dto)
+        +ResponseEntity updateField(Long fieldId, FieldUpdateDto dto)
+        +ResponseEntity deleteField(Long fieldId)
+        +ResponseEntity getFields(Long formId)
+    }
+
+    class FormResponseController {
+        -FormResponseService responseService
+        +ResponseEntity getFormResponse(Long formId)
+        +ResponseEntity updateFieldValue(Long formId, Long fieldId, UpdateFieldValueDto dto)
+        +ResponseEntity submitFormResponse(Long formId)
+    }
+
+    class FormCollaborationController {
+        -FormCollaborationService collaborationService
+        +ResponseEntity joinForm(String accessCode)
+        +ResponseEntity getCurrentCollaborators(Long formId)
+        +ResponseEntity acquireLock(Long formId, Long fieldId)
+        +ResponseEntity releaseLock(Long formId, Long fieldId)
+    }
+
+    class WebSocketController {
+        -FormCollaborationService collaborationService
+        +FormUpdateMessage updateField(UpdateFieldMessage message)
+        +void handleUserJoined(UserJoinMessage message)
+        +void handleUserLeft(UserLeftMessage message)
+        +LockAcquiredMessage acquireLock(LockRequestMessage message)
+    }
+
+    class FormService {
+        -FormRepository formRepository
+        -FormFieldRepository fieldRepository
+        -FormAccessRepository accessRepository
+        +Form createForm(FormCreateDto dto, User admin)
+        +Form updateForm(Long id, FormUpdateDto dto)
+        +Form getForm(Long id)
+        +List~Form~ listFormsByUser(User user)
+        +void deleteForm(Long id)
+        +String generateShareCode(Long formId)
+    }
+
+    class FormFieldService {
+        -FormFieldRepository fieldRepository
+        -FormRepository formRepository
+        +FormField addField(Long formId, FieldCreateDto dto)
+        +FormField updateField(Long fieldId, FieldUpdateDto dto)
+        +void deleteField(Long fieldId)
+        +List~FormField~ getFields(Long formId)
+    }
+
+    class FormResponseService {
+        -FormResponseRepository responseRepository
+        -FieldValueRepository valueRepository
+        -EditLockRepository lockRepository
+        +FormResponse getOrCreateResponse(Long formId)
+        +FieldValue updateFieldValue(Long formId, Long fieldId, String value, User user)
+        +FormResponse submitResponse(Long formId)
+        +List~FieldValue~ getFieldValues(Long responseId)
+    }
+
+    class FormCollaborationService {
+        -FormAccessRepository accessRepository
+        -EditLockRepository lockRepository
+        -FormService formService
+        -SimpMessagingTemplate messagingTemplate
+        +Form joinForm(String accessCode, User user)
+        +List~User~ getCurrentCollaborators(Long formId)
+        +EditLock acquireLock(Long formId, Long fieldId, User user)
+        +void releaseLock(Long formId, Long fieldId, User user)
+        +void notifyFieldUpdate(Long formId, Long fieldId, String value, User updatedBy)
+        +void notifyUserJoined(Long formId, User user)
+        +void notifyUserLeft(Long formId, User user)
+    }
+
+    class UserRepository {
+        +Optional~User~ findByUsername(String username)
+        +Optional~User~ findByEmail(String email)
+    }
+
+    class FormRepository {
+        +List~Form~ findByAdmin(User admin)
+    }
+
+    class FormFieldRepository {
+        +List~FormField~ findByFormId(Long formId)
+        +void deleteByFormId(Long formId)
+    }
+
+    class FormResponseRepository {
+        +Optional~FormResponse~ findByFormId(Long formId)
+    }
+
+    class FieldValueRepository {
+        +Optional~FieldValue~ findByResponseIdAndFieldId(Long responseId, Long fieldId)
+        +List~FieldValue~ findByResponseId(Long responseId)
+    }
+
+    class FormAccessRepository {
+        +Optional~FormAccess~ findByAccessCode(String accessCode)
+        +List~FormAccess~ findByFormId(Long formId)
+    }
+
+    class EditLockRepository {
+        +Optional~EditLock~ findByFieldIdAndResponseId(Long fieldId, Long responseId)
+        +List~EditLock~ findByResponseId(Long responseId)
+        +void deleteByUserIdAndResponseId(Long userId, Long responseId)
+    }
+
+    class WebSocketConfig {
+        +void configureMessageBroker(MessageBrokerRegistry config)
+        +void registerStompEndpoints(StompEndpointRegistry registry)
+    }
+
+    class SecurityConfig {
+        +SecurityFilterChain filterChain(HttpSecurity http)
+        +PasswordEncoder passwordEncoder()
+        +JwtAuthenticationFilter jwtAuthFilter()
+    }
+
+    User "1" --o "*" Form : creates
+    User "1" --o "*" FormAccess : has
+    User "1" --o "*" EditLock : holds
+    User "1" --o "*" FieldValue : updates
+
+    Form "1" --* "*" FormField : contains
+    Form "1" --o "1" FormResponse : has
+    Form "1" --o "*" FormAccess : grants
+
+    FormField "1" --o "*" FieldValue : defines
+    FormField "1" --o "*" EditLock : locks
+
+    FormResponse "1" --* "*" FieldValue : contains
+    FormResponse "1" --o "*" EditLock : manages
+
+    FormController -- FormService : uses
+    FormFieldController -- FormFieldService : uses
+    FormResponseController -- FormResponseService : uses
+    FormCollaborationController -- FormCollaborationService : uses
+    WebSocketController -- FormCollaborationService : uses
+
+    FormService -- FormRepository : uses
+    FormFieldService -- FormFieldRepository : uses
+    FormResponseService -- FormResponseRepository : uses
+    FormResponseService -- FieldValueRepository : uses
+    FormResponseService -- EditLockRepository : uses
+    FormCollaborationService -- FormAccessRepository : uses
+    FormCollaborationService -- EditLockRepository : uses

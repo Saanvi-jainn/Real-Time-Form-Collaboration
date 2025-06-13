@@ -1,0 +1,138 @@
+sequenceDiagram
+    participant Client
+    participant WS as WebSocket
+    participant FC as FormController
+    participant FFC as FormFieldController
+    participant FRC as FormResponseController
+    participant FCC as FormCollaborationController
+    participant FS as FormService
+    participant FFS as FormFieldService
+    participant FRS as FormResponseService
+    participant FCS as FormCollaborationService
+    participant Redis
+    participant DB as Database
+    
+    %% Form Creation Flow
+    Client->>FC: POST /api/v1/forms (Create Form)
+    FC->>FS: createForm(formCreateDto, admin)
+    FS->>DB: save(form)
+    DB-->>FS: saved form
+    FS-->>FC: form
+    FC-->>Client: Form Created Response
+    
+    %% Add Fields to Form
+    Client->>FFC: POST /api/v1/forms/{formId}/fields
+    FFC->>FFS: addField(formId, fieldCreateDto)
+    FFS->>DB: findFormById(formId)
+    DB-->>FFS: form
+    FFS->>DB: save(formField)
+    DB-->>FFS: saved formField
+    FFS-->>FFC: formField
+    FFC-->>Client: Field Added Response
+    
+    %% Share Form
+    Client->>FC: POST /api/v1/forms/{formId}/share
+    FC->>FS: generateShareCode(formId)
+    FS->>DB: save(formAccess)
+    DB-->>FS: saved formAccess
+    FS-->>FC: accessCode
+    FC-->>Client: Share Code Response
+    
+    %% Join Form
+    Client->>FCC: POST /api/v1/collaborate/join (accessCode)
+    FCC->>FCS: joinForm(accessCode, user)
+    FCS->>DB: findByAccessCode(accessCode)
+    DB-->>FCS: formAccess
+    FCS->>DB: findFormById(formAccess.formId)
+    DB-->>FCS: form
+    FCS-->>FCC: form
+    FCC-->>Client: Form Details Response
+    
+    %% WebSocket Connection
+    Client->>WS: Connect to /collab-form-websocket
+    WS-->>Client: Connection Established
+    Client->>WS: Subscribe to /topic/forms/{formId}/field-updates
+    Client->>WS: Subscribe to /topic/forms/{formId}/users
+    Client->>WS: Subscribe to /topic/forms/{formId}/locks
+    
+    %% Notify User Joined
+    Client->>WS: Send User Joined Message
+    WS->>FCS: notifyUserJoined(formId, user)
+    FCS->>WS: Broadcast USER_JOIN message
+    WS-->>Client: USER_JOIN message (to all connected clients)
+    
+    %% Get Form Response
+    Client->>FRC: GET /api/v1/forms/{formId}/response
+    FRC->>FRS: getOrCreateResponse(formId)
+    FRS->>DB: findByFormId(formId)
+    DB-->>FRS: formResponse or null
+    alt No Existing Response
+        FRS->>DB: save(new FormResponse)
+        DB-->>FRS: saved formResponse
+    end
+    FRS->>DB: findFieldValuesByResponseId(responseId)
+    DB-->>FRS: fieldValues
+    FRS-->>FRC: formResponse with fieldValues
+    FRC-->>Client: Form Response Data
+    
+    %% Acquire Lock for Editing
+    Client->>WS: Send Lock Request
+    WS->>FCS: acquireLock(formId, fieldId, user)
+    FCS->>Redis: Check existing lock
+    Redis-->>FCS: lock status
+    alt No Existing Lock
+        FCS->>Redis: Set lock with TTL
+        FCS->>WS: Broadcast LOCK_ACQUIRED message
+        WS-->>Client: LOCK_ACQUIRED message (to all clients)
+    else Field Already Locked
+        FCS-->>WS: Reject lock request
+        WS-->>Client: LOCK_REJECTED message
+    end
+    
+    %% Update Field Value
+    Client->>WS: Send Update Field Message
+    WS->>FCS: updateFieldValue(formId, fieldId, value, user)
+    FCS->>Redis: Check lock ownership
+    Redis-->>FCS: lock info
+    alt User Owns Lock
+        FCS->>FRS: updateFieldValue(formId, fieldId, value, user)
+        FRS->>DB: findFieldValueByResponseIdAndFieldId
+        DB-->>FRS: fieldValue or null
+        alt Field Value Exists
+            FRS->>DB: update fieldValue
+        else No Field Value
+            FRS->>DB: save new fieldValue
+        end
+        DB-->>FRS: updated/saved fieldValue
+        FRS-->>FCS: fieldValue
+        FCS->>WS: Broadcast FIELD_UPDATE message
+        WS-->>Client: FIELD_UPDATE message (to all clients)
+    else User Doesn't Own Lock
+        FCS-->>WS: Reject update
+        WS-->>Client: UPDATE_REJECTED message
+    end
+    
+    %% Release Lock
+    Client->>WS: Send Release Lock Message
+    WS->>FCS: releaseLock(formId, fieldId, user)
+    FCS->>Redis: Delete lock
+    FCS->>WS: Broadcast LOCK_RELEASED message
+    WS-->>Client: LOCK_RELEASED message (to all clients)
+    
+    %% Handle Disconnection
+    Client->>WS: Disconnect
+    WS->>FCS: handleUserDisconnect(user)
+    FCS->>Redis: Find all locks by user
+    Redis-->>FCS: user locks
+    FCS->>Redis: Delete all user locks
+    FCS->>WS: Broadcast USER_LEAVE message
+    FCS->>WS: Broadcast LOCK_RELEASED messages for all user locks
+    WS-->>Client: Messages to remaining clients
+    
+    %% Submit Form Response
+    Client->>FRC: POST /api/v1/forms/{formId}/response/submit
+    FRC->>FRS: submitResponse(formId)
+    FRS->>DB: updateResponseStatus(responseId, SUBMITTED)
+    DB-->>FRS: updated formResponse
+    FRS-->>FRC: formResponse
+    FRC-->>Client: Submission Confirmation

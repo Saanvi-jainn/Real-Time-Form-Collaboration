@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CollabForm - Collaborative Form Filling</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="css/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+</head>
+<body>
+    <header>
+        <nav>
+            <div class="logo">
+                <h1><i class="fas fa-clipboard-list"></i> CollabForm</h1>
+            </div>
+            <div class="nav-links">
+                <ul id="nav-menu">
+                    <li class="auth-visible"><a href="#" id="create-form-nav">Create Form</a></li>
+                    <li class="auth-visible"><a href="#" id="my-forms-nav">My Forms</a></li>
+                    <li class="auth-visible"><a href="#" id="shared-forms-nav">Shared Forms</a></li>
+                    <li class="auth-hidden"><a href="#" id="login-nav">Login</a></li>
+                    <li class="auth-hidden"><a href="#" id="register-nav">Register</a></li>
+                    <li class="auth-visible"><a href="#" id="logout-nav">Logout</a></li>
+                </ul>
+            </div>
+            <div class="user-info auth-visible">
+                <span id="username-display"></span>
+            </div>
+        </nav>
+    </header>
+
+    <main>
+        <!-- Home Section -->
+        <section id="home-section" class="section active">
+            <div class="hero">
+                <h1>Real-time Collaborative Form Filling</h1>
+                <p>Create forms, collaborate with others in real-time, and manage responses seamlessly</p>
+                <div class="cta-buttons">
+                    <button id="get-started-btn" class="btn btn-primary">Get Started</button>
+                    <button id="learn-more-btn" class="btn btn-secondary">Learn More</button>
+                </div>
+            </div>
+
+            <div class="features">
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-users"></i></div>
+                    <h3>Real-time Collaboration</h3>
+                    <p>Work together with your team on the same form simultaneously</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-lock"></i></div>
+                    <h3>Field Locking</h3>
+                    <p>Prevent conflicts with intelligent field locking during editing</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-th-list"></i></div>
+                    <h3>Dynamic Form Fields</h3>
+                    <p>Create forms with various field types to suit your needs</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Auth Section -->
+        <section id="auth-section" class="section">
+            <div class="auth-container">
+                <div class="auth-tabs">
+                    <button class="auth-tab-btn active" id="login-tab">Login</button>
+                    <button class="auth-tab-btn" id="register-tab">Register</button>
+                </div>
+
+                <div class="auth-form" id="login-form">
+                    <h2>Login</h2>
+                    <div class="form-group">
+                        <label for="login-username">Username or Email</label>
+                        <input type="text" id="login-username" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="login-password">Password</label>
+                        <input type="password" id="login-password" required>
+                    </div>
+                    <button class="btn btn-primary" id="login-btn">Login</button>
+                    <div class="error-message" id="login-error"></div>
+                </div>
+
+                <div class="auth-form hidden" id="register-form">
+                    <h2>Register</h2>
+                    <div class="form-group">
+                        <label for="register-username">Username</label>
+                        <input type="text" id="register-username" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="register-email">Email</label>
+                        <input type="email" id="register-email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="register-password">Password</label>
+                        <input type="password" id="register-password" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="register-confirm-password">Confirm Password</label>
+                        <input type="password" id="register-confirm-password" required>
+                    </div>
+                    <button class="btn btn-primary" id="register-btn">Register</button>
+                    <div class="error-message" id="register-error"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Form List Section -->
+        <section id="form-list-section" class="section">
+            <div class="container">
+                <div class="section-header">
+                    <h2 id="forms-list-title">My Forms</h2>
+                    <button class="btn btn-primary" id="new-form-btn"><i class="fas fa-plus"></i> New Form</button>
+                </div>
+                
+                <div class="filter-bar">
+                    <div class="search-box">
+                        <input type="text" id="search-forms" placeholder="Search forms...">
+                        <i class="fas fa-search"></i>
+                    </div>
+                    <div class="filter-options">
+                        <label>
+                            <input type="checkbox" id="active-only"> 
+                            Active only
+                        </label>
+                    </div>
+                </div>
+
+                <div class="forms-grid" id="forms-container">
+                    <!-- Forms will be loaded here -->
+                    <div class="empty-state hidden" id="no-forms-message">
+                        <i class="fas fa-clipboard"></i>
+                        <p>No forms found. Create your first form!</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Form Editor Section -->
+        <section id="form-editor-section" class="section">
+            <div class="container">
+                <div class="section-header">
+                    <h2 id="form-editor-title">Create New Form</h2>
+                    <div class="form-actions">
+                        <button class="btn btn-secondary" id="cancel-form-btn">Cancel</button>
+                        <button class="btn btn-primary" id="save-form-btn">Save Form</button>
+                    </div>
+                </div>
+
+                <div class="form-editor">
+                    <div class="form-meta">
+                        <div class="form-group">
+                            <label for="form-title">Form Title</label>
+                            <input type="text" id="form-title" placeholder="Enter form title" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="form-description">Description</label>
+                            <textarea id="form-description" placeholder="Enter form description"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="form-fields-container">
+                        <h3>Form Fields</h3>
+                        <div id="form-fields">
+                            <!-- Fields will be added here -->
+                        </div>
+                        <button class="btn btn-secondary" id="add-field-btn"><i class="fas fa-plus"></i> Add Field</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Form Collaboration Section -->
+        <section id="form-collab-section" class="section">
+            <div class="container">
+                <div class="section-header">
+                    <h2 id="collab-form-title">Collaborative Form</h2>
+                    <div class="form-actions">
+                        <button class="btn btn-secondary" id="back-btn">Back</button>
+                        <button class="btn btn-primary" id="submit-form-btn">Submit Response</button>
+                    </div>
+                </div>
+
+                <div class="collaboration-info">
+                    <div class="form-meta-display">
+                        <h3 id="collab-form-name"></h3>
+                        <p id="collab-form-description"></p>
+                    </div>
+                    
+                    <div class="collaborators-panel">
+                        <h4>Active Collaborators</h4>
+                        <ul id="collaborators-list">
+                            <!-- Collaborators will be displayed here -->
+                        </ul>
+                    </div>
+                </div>
+
+                <div id="collab-form-fields" class="collaborative-form">
+                    <!-- Form fields will be rendered here -->
+                    <div class="loading-spinner" id="form-loading">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <p>Loading form...</p>
+                    </div>
+                </div>
+
+                <div class="sharing-panel admin-only">
+                    <h3>Share this Form</h3>
+                    <div class="form-group">
+                        <label for="share-email">Share with (username or email)</label>
+                        <div class="share-input-group">
+                            <input type="text" id="share-email" placeholder="Enter username or email">
+                            <button class="btn btn-primary" id="share-form-btn">Share</button>
+                        </div>
+                    </div>
+                    <div id="share-message"></div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="footer-content">
+            <div class="footer-logo">
+                <h3><i class="fas fa-clipboard-list"></i> CollabForm</h3>
+                <p>Real-time collaborative form filling</p>
+            </div>
+            <div class="footer-links">
+                <h4>Quick Links</h4>
+                <ul>
+                    <li><a href="#">Home</a></li>
+                    <li><a href="#">Features</a></li>
+                    <li><a href="#">About</a></li>
+                    <li><a href="#">Contact</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2025 CollabForm. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <!-- Field Template Modal -->
+    <div class="modal" id="field-modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>Add Form Field</h2>
+            <div class="form-group">
+                <label for="field-name">Field Name</label>
+                <input type="text" id="field-name" required>
+            </div>
+            <div class="form-group">
+                <label for="field-type">Field Type</label>
+                <select id="field-type">
+                    <option value="TEXT">Text</option>
+                    <option value="TEXTAREA">Textarea</option>
+                    <option value="NUMBER">Number</option>
+                    <option value="DATE">Date</option>
+                    <option value="DROPDOWN">Dropdown</option>
+                    <option value="CHECKBOX">Checkbox</option>
+                    <option value="RADIO">Radio</option>
+                </select>
+            </div>
+            <div class="form-group" id="options-container">
+                <label for="field-options">Options (comma-separated)</label>
+                <input type="text" id="field-options" placeholder="Option 1, Option 2, Option 3">
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="field-required">
+                    Required field
+                </label>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="cancel-field-btn">Cancel</button>
+                <button class="btn btn-primary" id="save-field-btn">Add Field</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast" id="toast">
+        <div class="toast-content">
+            <i id="toast-icon" class="fas"></i>
+            <div class="toast-message" id="toast-message"></div>
+        </div>
+        <div class="toast-progress"></div>
+    </div>
+
+    <script src="js/auth.js"></script>
+    <script src="js/form.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
