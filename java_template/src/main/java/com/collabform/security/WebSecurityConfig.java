@@ -63,8 +63,7 @@ public class WebSecurityConfig {
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-                .headers(headers -> headers
-                        .frameOptions(frame -> frame.sameOrigin()))
+                .headers(headers -> headers.frameOptions(frameOptions -> frameOptions.disable()))
                 .build();
     }
 
