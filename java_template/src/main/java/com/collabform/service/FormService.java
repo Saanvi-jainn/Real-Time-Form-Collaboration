@@ -38,6 +38,8 @@ public class FormService {
                 .description(request.getDescription())
                 .admin(currentUser)
                 .active(true)
+                .fields(new ArrayList<>())
+                .accessEntries(new ArrayList<>())
                 .build();
 
         Form savedForm = formRepository.save(form);

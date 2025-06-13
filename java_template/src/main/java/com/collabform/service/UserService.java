@@ -39,32 +39,32 @@ public class UserService {
      */
     @Transactional
     public AuthResponse registerUser(RegisterRequest request) {
-        // Check if username or email already exists
         if (userRepository.existsByUsername(request.getUsername())) {
             throw new IllegalArgumentException("Username is already taken");
         }
-        
+
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new IllegalArgumentException("Email is already in use");
         }
 
-        // Determine role (default to USER if not specified or not ADMIN)
         UserRole role = UserRole.USER;
         if (request.getRole() != null && request.getRole().equalsIgnoreCase("ADMIN")) {
             role = UserRole.ADMIN;
         }
-        
-        // Create new user entity
+
         User user = User.builder()
                 .username(request.getUsername())
                 .email(request.getEmail())
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .role(role)
+                .accountNonExpired(true)
+                .accountNonLocked(true)
+                .credentialsNonExpired(true)
+                .enabled(true)
                 .build();
-        
+
         User savedUser = userRepository.save(user);
-        
-        // Generate JWT token
+
         String jwt = tokenProvider.generateTokenFromUser(savedUser);
 
         return AuthResponse.builder()

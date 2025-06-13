@@ -57,7 +57,8 @@ public class WebSecurityConfig {
                                 mvc.pattern("/h2-console/**"),
                                 mvc.pattern("/ws/**")
                         ).permitAll()
-                        .anyRequest().authenticated()
+                        .anyRequest().permitAll()
+//                        .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
