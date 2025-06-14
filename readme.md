@@ -28,6 +28,7 @@ CollabForm is a Spring Boot-based application designed for real-time collaborati
 
 # File Description Inventory
 - **docs/**: Contains design documents and diagrams.
+- **data/**: Contains H2 DB files.
 - **java_template/**: Main application source code and configuration.
   - **pom.xml**: Maven project configuration file.
   - **CollabFormApplication.java**: Main application entry point.
